@@ -12,18 +12,24 @@ class Proxy implements ProxyInterface
 
     protected $ip;
     protected $port;
+    protected $type;
     protected $user;
     protected $password;
-    protected $scheme;
 
-    public function __construct($ip, $port, $user = null, $password = null, $scheme = null)
+    /**
+     * @param string $ip proxy ip
+     * @param int $port proxy port
+     * @param string|null $user username if proxy needs credentials
+     * @param string|null $password password if proxy needs credentials
+     * @param string $type proxy type: one of "HTTP", "HTTPS", "SOCKS4", "SOCKS5". This will be automatically uppercased
+     */
+    public function __construct($ip, $port, $user = null, $password = null, $type = 'HTTP')
     {
-        $this->ip = $ip;
-        $this->port = $port;
-        $this->user = $user;
+        $this->ip       = $ip;
+        $this->port     = $port;
+        $this->type     = strtoupper($type);
+        $this->user     = $user;
         $this->password = $password;
-        $this->scheme = $scheme;
-
     }
 
     public function getIp()
@@ -36,6 +42,11 @@ class Proxy implements ProxyInterface
         return $this->port;
     }
 
+    public function getType()
+    {
+        return $this->type;
+    }
+
     public function getUser()
     {
         return $this->user;
@@ -46,17 +57,19 @@ class Proxy implements ProxyInterface
         return $this->password;
     }
 
-    public function getScheme()
-    {
-        return $this->scheme;
-    }
-
     public static function createFromString($proxy)
     {
+
+        if (preg_match('#^[a-zA-Z0-9]+://#', $proxy)) {
+            list($type, $proxy) = explode('://', $proxy, 2);
+        } else {
+            $type = 'HTTP';
+        }
+
         $proxyPieces = explode('@', $proxy);
         if (count($proxyPieces) == 2) {
             $authPieces = explode(':', $proxyPieces[0]);
-            if (count($authPieces)>2) {
+            if (count($authPieces) > 2) {
                 throw new Exception('Bad proxy string. Expected format: [user[:passsword]@]ip:port');
             }
             if (!isset($authPieces[1])) {
@@ -67,14 +80,14 @@ class Proxy implements ProxyInterface
                 throw new Exception('Bad proxy string. Expected format: [user[:passsword]@]ip:port');
             }
         } elseif (count($proxyPieces) == 1) {
-            $authPieces = [null,null];
+            $authPieces = [null, null];
             $hostPieces = explode(':', $proxyPieces[0]);
         } else {
             throw new Exception('Bad proxy string. Expected format: [user[:passsword]@]ip:port');
         }
-        $options['login'] = $authPieces[0];
+        $options['login']    = $authPieces[0];
         $options['password'] = $authPieces[1];
-        return new self($hostPieces[0], $hostPieces[1], $authPieces[0], $authPieces[1]);
+        return new self($hostPieces[0], $hostPieces[1], $authPieces[0], $authPieces[1], $type);
     }
 
     public function __toString()
@@ -87,8 +100,8 @@ class Proxy implements ProxyInterface
             $proxy = $user . '@' . $proxy;
         }
 
-        if ($this->scheme) {
-            $proxy =  $this->scheme . '://' . $proxy;
+        if ($this->type) {
+            $proxy = strtolower($this->getType()) . '://' . $proxy;
         }
 
         return $proxy;
