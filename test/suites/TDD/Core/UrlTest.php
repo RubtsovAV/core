@@ -165,24 +165,63 @@ class UrlTest extends \PHPUnit_Framework_TestCase
         $url->resolve('//bar', Cookie::class);
     }
 
-    public function testMerge()
+    /**
+     * @dataProvider RFC3986ResolveDataProvider
+     */
+    public function testRFC3986Resolve($relUri, $mustResolved)
     {
-        $url = Url::merge('https://domain/dir/file?query=value#fragment', 'http://anotherschema');
-        $this->assertEquals('http://anotherschema', $url->buildUrl());
+        $url = Url::fromString('http://a/b/c/d;p?q');
+        $this->assertEquals($mustResolved, $url->resolve($relUri, 'string'));
+    }
 
-        $url = Url::merge('https://domain/dir/file?query=value#fragment', '//anotherdomain');
-        $this->assertEquals('https://anotherdomain', $url->buildUrl());
+    public function RFC3986ResolveDataProvider()
+    {
+        return [
+            ['https:'        ,  'https:'],
 
-        $url = Url::merge('https://domain/dir/file?query=value#fragment', '/anotherpath');
-        $this->assertEquals('https://domain/anotherpath', $url->buildUrl());
+            // Examples from https://tools.ietf.org/html/rfc3986#section-5.4.1
+            ['g'             ,  'http://a/b/c/g'],
+            ['./g'           ,  'http://a/b/c/g'],
+            ['g/'            ,  'http://a/b/c/g/'],
+            ['/g'            ,  'http://a/g'],
+            ['//g'           ,  'http://g'],
+            ['?y'            ,  'http://a/b/c/d;p?y'],
+            ['g?y'           ,  'http://a/b/c/g?y'],
+            ['#s'            ,  'http://a/b/c/d;p?q#s'],
+            ['g#s'           ,  'http://a/b/c/g#s'],
+            ['g?y#s'         ,  'http://a/b/c/g?y#s'],
+            [';x'            ,  'http://a/b/c/;x'],
+            ['g;x'           ,  'http://a/b/c/g;x'],
+            ['g;x?y#s'       ,  'http://a/b/c/g;x?y#s'],
+            [''              ,  'http://a/b/c/d;p?q'],
+            ['.'             ,  'http://a/b/c/'],
+            ['./'            ,  'http://a/b/c/'],
+            ['..'            ,  'http://a/b/'],
+            ['../'           ,  'http://a/b/'],
+            ['../g'          ,  'http://a/b/g'],
+            ['../..'         ,  'http://a/'],
+            ['../../'        ,  'http://a/'],
+            ['../../g'       ,  'http://a/g'],
 
-        $url = Url::merge('https://domain/dir/file?query=value#fragment', 'anotherfile');
-        $this->assertEquals('https://domain/dir/anotherfile', $url->buildUrl());
-
-        $url = Url::merge('https://domain/dir/file?query=value#fragment', '?anotherquery=value');
-        $this->assertEquals('https://domain/dir/file?anotherquery=value', $url->buildUrl());
-
-        $url = Url::merge('https://domain/dir/file?query=value#fragment', '#anotherfragment');
-        $this->assertEquals('https://domain/dir/file?query=value#anotherfragment', $url->buildUrl());
+            // Examples from https://tools.ietf.org/html/rfc3986#section-5.4.2
+            ['../../../g'    ,  'http://a/g'],
+            ['../../../../g' ,  'http://a/g'],
+            ['/./g'          ,  'http://a/g'],
+            ['/../g'         ,  'http://a/g'],
+            ['g.'            ,  'http://a/b/c/g.'],
+            ['.g'            ,  'http://a/b/c/.g'],
+            ['g..'           ,  'http://a/b/c/g..'],
+            ['..g'           ,  'http://a/b/c/..g'],
+            ['./../g'        ,  'http://a/b/g'],
+            ['./g/.'         ,  'http://a/b/c/g/'],
+            ['g/./h'         ,  'http://a/b/c/g/h'],
+            ['g/../h'        ,  'http://a/b/c/h'],
+            ['g;x=1/./y'     ,  'http://a/b/c/g;x=1/y'],
+            ['g;x=1/../y'    ,  'http://a/b/c/y'],
+            ['g?y/./x'       ,  'http://a/b/c/g?y/./x'],
+            ['g?y/../x'      ,  'http://a/b/c/g?y/../x'],
+            ['g#s/./x'       ,  'http://a/b/c/g#s/./x'],
+            ['g#s/../x'      ,  'http://a/b/c/g#s/../x'],
+        ];
     }
 }
